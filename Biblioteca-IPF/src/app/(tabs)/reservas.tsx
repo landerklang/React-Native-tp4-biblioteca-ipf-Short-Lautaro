@@ -33,7 +33,7 @@ export default function ReservasScreen() {
               <Text style={styles.texto}>Devolver antes del: {fecha}</Text>
 
               <View style={styles.filaRecordatorio}>
-                <Text style={styles.texto}>Recordarme</Text>
+                <Text style={styles.texto}>Recordarme (15s)</Text>
                 <Switch
                   value={item.recordar}
                   onValueChange={() => toggleRecordatorio(item.isbn)}

@@ -9,6 +9,12 @@ import { Pila } from "../estructuras/Pila";
 import { Cola } from "../estructuras/Colas";
 import { ESPERAS_INICIALES } from "../data/libros";
 import type { Libro } from "../types";
+import {
+  programarNotificacion,
+  cancelarNotificacion,
+  configurarCanalAndroid,
+} from "../lib/notificaciones";
+import * as Notifications from "expo-notifications";
 
 export type Prestamo = {
   isbn: string;
@@ -85,15 +91,68 @@ export function BibliotecaProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const devolverPrestamo = useCallback((isbn: string) => {
-    setPrestamos((prev) => prev.filter((p) => p.isbn !== isbn));
-  }, []);
+  const devolverPrestamo = useCallback(
+    async (isbn: string) => {
+      // Antes de eliminar, cancelamos la notificación si existía
+      const prestamo = prestamos.find((p) => p.isbn === isbn);
+      if (prestamo?.notificacionId) {
+        await cancelarNotificacion(prestamo.notificacionId);
+      }
+      setPrestamos((prev) => prev.filter((p) => p.isbn !== isbn));
+    },
+    [prestamos],
+  );
 
-  const toggleRecordatorio = useCallback((isbn: string) => {
-    setPrestamos((prev) =>
-      prev.map((p) => (p.isbn === isbn ? { ...p, recordar: !p.recordar } : p)),
-    );
-  }, []);
+  const toggleRecordatorio = useCallback(
+    async (isbn: string) => {
+      const prestamo = prestamos.find((p) => p.isbn === isbn);
+      if (!prestamo) return;
+
+      if (prestamo.recordar) {
+        // Se está apagando
+        if (prestamo.notificacionId) {
+          await cancelarNotificacion(prestamo.notificacionId);
+        }
+        setPrestamos((prev) =>
+          prev.map((p) =>
+            p.isbn === isbn
+              ? { ...p, recordar: false, notificacionId: undefined }
+              : p,
+          ),
+        );
+      } else {
+        // Se está encendiendo (A3.7: pedir permiso solo acá)
+        const { status } = await Notifications.getPermissionsAsync();
+        let estadoFinal = status;
+
+        if (status !== "granted") {
+          await configurarCanalAndroid(); // Crear canal ANTES de pedir permiso en Android
+          const pedido = await Notifications.requestPermissionsAsync();
+          estadoFinal = pedido.status;
+        }
+
+        if (estadoFinal === "granted") {
+          const id = await programarNotificacion(
+            "Recordatorio de devolución",
+            `No te olvides de devolver el libro.`,
+          );
+          setPrestamos((prev) =>
+            prev.map((p) =>
+              p.isbn === isbn
+                ? { ...p, recordar: true, notificacionId: id }
+                : p,
+            ),
+          );
+        } else {
+          // Si denegó, igual activamos el switch pero no habrá notificación (Aviso en app)
+          setPrestamos((prev) =>
+            prev.map((p) => (p.isbn === isbn ? { ...p, recordar: true } : p)),
+          );
+        }
+      }
+    },
+    [prestamos],
+  );
 
   const setNotificacionId = useCallback((isbn: string, id: string) => {
     setPrestamos((prev) =>

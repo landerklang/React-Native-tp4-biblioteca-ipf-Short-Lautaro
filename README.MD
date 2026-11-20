@@ -2,7 +2,7 @@
 
 Trabajo Práctico N° 4 — App integradora de React Native y Expo Router.
 
-**Alumno/a:** Lautaro Short
+**Alumno** Lautaro Short
 **Versión del SDK de Expo:** 58 (Expo Go)
 **Versión de React Native:** 0.88
 

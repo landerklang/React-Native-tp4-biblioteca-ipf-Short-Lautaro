@@ -4,6 +4,8 @@ import { useBiblioteca } from "../context/BibliotecaContext";
 import { LIBROS } from "../data/libros";
 import { TEMA } from "../constants/tema";
 import { Boton } from "../components/Boton";
+import * as Notifications from "expo-notifications";
+import { configurarCanalAndroid } from "../lib/notificaciones";
 
 export default function MostradorScreen() {
   const { esperas, entregarAlSiguiente, cerrarSesion } = useBiblioteca();
@@ -16,6 +18,31 @@ export default function MostradorScreen() {
   const handleCerrarSesion = () => {
     cerrarSesion();
     router.replace("/");
+  };
+
+  const handleEntregar = async (isbn: string) => {
+    const persona = entregarAlSiguiente(isbn);
+
+    if (persona === "Yo") {
+      // Es el turno del alumno actual (simulado)
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === "granted") {
+        // Si tiene permiso, disparamos notificación inmediata
+        await configurarCanalAndroid();
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "¡Tu libro está listo!",
+            body: `El libro "${LIBROS.find((l) => l.isbn === isbn)?.titulo}" te está esperando en el mostrador.`,
+          },
+          trigger: null, // Inmediata
+        });
+      } else {
+        // Si no tiene permiso, el aviso queda dentro de la app (en la pestaña reservas)
+        // Para simular esto, podríamos tener un estado de "avisos" en el contexto.
+        // Por ahora, lo dejamos como alerta visual en la app.
+        console.log("Aviso en app: Tu libro está listo");
+      }
+    }
   };
 
   return (
@@ -44,7 +71,7 @@ export default function MostradorScreen() {
               <Text>En espera: {cola.tamanio}</Text>
               <Boton
                 titulo="Entregar al siguiente"
-                onPress={() => entregarAlSiguiente(isbn)}
+                onPress={() => handleEntregar(isbn)}
                 style={{ marginTop: TEMA.espaciados.sm }}
               />
             </View>
